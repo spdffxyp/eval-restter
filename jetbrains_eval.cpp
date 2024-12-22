@@ -1,6 +1,8 @@
 #include <iostream>
-#include <windows.h>
 #include <fstream>
+#include <windows.h>
+#include <DbgHelp.h>
+#include <Userenv.h>
 
 // 将 long long 转换为大端字节序
 long long toBigEndian(long long value) {
@@ -13,15 +15,33 @@ long long toBigEndian(long long value) {
 
 int main(int argc, char* argv[])
 {
-    if (argc != 2) {
-        std::cerr << "请提供key文件路径作为命令行参数！\n";
-        std::cerr << "默认key文件路径：\n";
-        std::cerr << "C:\\Users\\[USERNAME]\\AppData\\Roaming\\JetBrains\\PyCharm2021.2\\eval\\PyCharm212.evaluation.key\n";
-        return 1;
+    char filePath[MAX_PATH] = "%appdata%\\JetBrains\\PyCharm2021.2\\eval\\PyCharm212.evaluation.key";
+    if (argc >= 2) {
+        strcpy_s(filePath, argv[1]);
+    }
+    HANDLE hToken;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
+    {
+        // 处理获取令牌句柄失败的情况，比如打印错误信息
+        DWORD error = GetLastError();
+        printf("获取用户令牌句柄失败，错误码: %d\n", error);
+        return -1;
+    }
+    // 扩展环境变量字符串，将%appdata%等环境变量替换为实际路径
+    if (10 > ExpandEnvironmentStringsForUserA(hToken, filePath, filePath, MAX_PATH))
+    {
+        DWORD error = GetLastError();
+        printf("获取用户环境变量失败，错误码: %d\n", error);
+        return -2;
+    }
+    
+    if (!MakeSureDirectoryPathExists(filePath))
+    {
+        DWORD error = GetLastError();
+        printf("新建目标文件夹错误，错误码: %d\n", error);
+        return -3;
     }
 
-    // 获取文件路径
-    const char* filePath = argv[1];
 
     // 获取当前时间（自1601年1月1日以来的100纳秒间隔）
     FILETIME ft;
@@ -41,15 +61,16 @@ int main(int argc, char* argv[])
     // 以二进制方式打开文件，将大端字节序的 negT 写入文件
     std::ofstream outFile(filePath, std::ios::binary);
     if (!outFile) {
-        std::cerr << "无法打开文件: " << filePath << std::endl;
-        return 1;
+        DWORD error = GetLastError();
+        printf("无法打开文件: %s，错误码：%d\n", filePath, error);
+        return -4;
     }
 
     // 将 negT 以大端字节序写入文件
     outFile.write(reinterpret_cast<const char*>(&bigEndianT), sizeof(bigEndianT));
     outFile.close();
 
-    std::cout << "写入成功: " << filePath << std::endl;
+    printf("写入成功: %s\n", filePath);
 
     return 0;
 }
