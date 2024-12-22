@@ -4,5 +4,7 @@
 
 3.
 run jetbrains_eval.exe, this program will write eval value to "%appdata%\\JetBrains\\PyCharm2021.2\\eval\\PyCharm212.evaluation.key"
+
 OR
+
 run jetbrains_eval.exe custom_path, this program will write eval value to custom_path
